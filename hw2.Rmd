@@ -1,0 +1,222 @@
+---
+title: "Homework 2"
+author: 'Tess Chandler, Bassim Eledath, Bryan Tong'
+date: "02/07/2020"
+output: 
+  html_document:
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = NA)
+```
+
+## Task 3
+
+#### Budget class
+```{r helper}
+#helper function for weights 
+helper_weights <- function(weights) {
+  for(i in 1:length(weights)) {
+    
+    # replace purposefully input NAs with 0
+    if(is.na(weights[i])) {
+      weights[i] <- 0
+    }
+    
+    # remove percent sign so number can be made into type double
+    weights[i] <- as.double(gsub("%", "", weights[i]))
+
+    # error if weight cannot be made a double after percent sign removed 
+    if(is.na(weights[i])) {
+      stop("Invalid weights input", call. = FALSE)
+    }
+  }
+  #convert weights into proportions
+  weights <- as.double(weights)
+  if(sum(weights) == 100)
+    for(i in 1:length(weights)) {
+      weights[i] <- weights[i] / 100
+    }
+  return(weights)
+}
+
+#convert spendings into type character
+helper_spendings <- function(spendings) {
+  spendings <- as.character(spendings)
+  return(spendings)
+}
+#convert total into type double
+helper_total <- function(total) {
+  total <- as.double(gsub("\\$", "", total))
+  return(total)
+}
+#convert savings into type double
+helper_savings <- function(savings) {
+  savings <- as.double(gsub("\\$", "", savings))
+  return(savings)
+}
+#convert time into type double
+helper_time <- function(time) {
+  time <- as.double(time)
+  return(time)
+}
+```
+
+```{r constructor}
+#constructor
+new_budget <- function(spendings, total, savings = 0, 
+                       weights = c(rep(1/length(spendings),length(spendings))), time = 30) {
+  #call helper methods on each of the parameters to properly format them
+  spendings <- helper_spendings(spendings)
+  total <- helper_total(total)
+  savings <- helper_savings(savings)
+  weights <- helper_weights(weights)
+  time <- helper_time(time)
+
+  values <- list(spendings = spendings, total  = total, savings = savings, weights = weights, time = time)
+  attr(values,"class") <- "budget"
+  values
+}
+```
+
+```{r validator}
+
+#helper functions for validator
+
+#check for negative values
+is_negative <- function(vec) {
+  neg_vec <- c()
+  for(item in vec) {
+    if(item < 0) {
+      neg_vec <- append(neg_vec, TRUE)
+    } else {
+      neg_vec <- append(neg_vec, FALSE)
+    }
+    return(any(neg_vec))
+  }
+}
+#check for values greater than one
+greater_one <- function(vec) {
+  greater_vec <- c()
+  for(item in vec) {
+    if(item > 1) {
+      greater_vec <- append(greater_vec, TRUE)
+    } else {
+      greater_vec <- append(greater_vec, FALSE)
+    }
+    return(any(greater_vec))
+  }
+}
+
+#validator function
+budget_validator <- function(budget) {
+  condition_spendings <- typeof(budget[[1]]) == "character" & !is.na(budget[[1]])
+  condition_total <- typeof(budget[[2]]) == "double" & !is.na(budget[[2]]) & budget[[2]] > 0
+  condition_savings <- typeof(budget[[3]]) == "double" & !is.na(budget[[3]]) & budget[[3]] > 0
+  condition_total_savings <- budget[[2]] >= budget[[3]]
+  condition_time <- typeof(budget[[5]]) == "double" & !is.na(budget[[5]]) & budget[[5]] > 0
+  condition_weights1 <- typeof(budget[[4]]) == "double"
+  condition_weights2 <- sum(budget[[4]]) == 1
+  condition_weights3 <- sum(budget[[4]]) <= 1
+  condition_weights6 <- length(budget[[4]]) == length(budget[[1]])
+  condition_weights4 <- is_negative(budget[[4]])
+  condition_weights5 <- greater_one(budget[[4]]) 
+  #checks to ensure different parameters have been formatted correctly
+  if(condition_spendings == FALSE) {
+    stop("Spendings must be a vector of type character", call. = FALSE)
+  }
+  if(condition_total == FALSE) {
+    stop("Total must be a number", call. = FALSE)
+  }
+  if(condition_savings == FALSE) {
+    stop("Savings must be a number", call. = FALSE)
+  }
+  if(condition_total_savings == FALSE) {
+    stop("Total must be greater than savings", call. = FALSE)
+  }     
+  if(condition_weights1 == FALSE & condition_weights4 == TRUE & condition_weights5 == TRUE) {
+    stop("Weights must be a number between 0 and 1", call. = FALSE)
+  } 
+  if(condition_weights3 == FALSE) {
+    stop("Sum of weights must be <= 1", call. = FALSE)
+  }
+  if(condition_weights6 == FALSE) {
+    stop("Weights vector must be the same length as spendings vector", call. = FALSE)
+  }
+  if(condition_time == FALSE)
+    stop("Time must be a positive number", call. = FALSE)
+}
+```
+
+```{r check}
+#checking functions to make sure constructor, validator, helper methods work as intended
+b1 <- new_budget("groceries", 100, 10, 100, 90)
+b2 <- new_budget(c("groceries", "rent", "fun"), "$500", 10, c(.30, .60, .10), 90)
+b3 <- new_budget(c("groceries", "rent", "fun"), "$500", 10, c(.60, .10), 90)
+budget_validator(b1)
+budget_validator(b2)
+budget_validator(b3)
+```
+
+```{r method1}
+# method that allocated money for each item in spendings vectpr
+budget_method <- function(budget) {
+  budget_vec <- c()
+  out <- c()
+  for(i in 1:length(budget$spendings)) {
+    budget_vec[i] <- (budget$total-budget$savings) * budget$weights[i]
+    out[i] <- paste("you have", round(budget_vec[i],digits=2), " dollars to spend on", budget$spendings[i])
+  }
+  part_1 <- paste(out, collapse = ' and ')
+  print(part_1)
+  
+}
+
+b <- new_budget(c("food","rent","shoes"), 1000)
+budget_method(b)
+```
+
+```{r method2}
+# method that indicates how much money is saved if weights are less than total - saving arguments
+savings_method <- function(budget) {
+  budget_vec <- c()
+  for(i in 1:length(budget$spendings)) {
+    budget_vec[i] <- (budget$total-budget$savings) * budget$weights[i]
+  }
+  spendings <- round(sum(budget_vec))
+  des_budget <- round(budget$total - budget$savings)
+  if(spendings < des_budget) {
+    additional_savings <- budget$savings + des_budget - spendings
+    return(print(paste("You will save an additional", 
+                       additional_savings, "dollars of savings this", budget$time, "days.",
+                       "Total Savings:", additional_savings + budget$savings, "dollars")))
+    
+  }
+  if(spendings == budget$total-budget$savings) {
+    return(print(paste("You will have no additional savings. Total Savings:", budget$savings, "dollars")))
+  }
+}
+```
+
+## Task 4
+
+We created a "budget" class that contains information about a certain budget: how much you have to spend on which items, how long the money will last, how much you'll have in savings, etc. The constructor takes in five parameters: spendings, total, savings, weights, and time. Spendings is a vector of items and tasks that you may want to spend money on, such as groceries, rent, electricity, water, etc. Total is the amount of money you have to spend on everything. Savings is how much you would like to have left over after you spend money on each of the items or tasks in the spendings vector, and has a default value of 0 because we assume that you would spend all of the money that you have. Weights is a vector that specifies what proportion of your budget (total - savings) you would want to spend on each of the items or tasks, such as 0.1 of the total on groceries, 0.3 of the total on rent, etc. 
+
+Weights has a default giving equal weight to each value in the spendings vector. Finally, time is how long you want the budget will last, and has a default value of 30 days or approximately one month. The constructor subsequently calls the helper methods on each of these five parameters to properly initialize and format them, and finally it creates the class called "budget". 
+
+The helper methods used in the contructor contain code to increase the robustness of the input to the constructor. For example, it properly accounts for NA values in the weights parameter, and converts any percent inputs as weights into double inputs to ensure consistency throughout the class. In addition, it reformats all the parameters into the correct formats, such as character for spendings, double for total, and double for savings. This design allows for more flexibility in the way users use this class, and allows the code to handle a greater variety of inputs. 
+
+The validator method contains code to ensure that the input is valid and makes logical sense in the context of this class and its use cases. It starts by defining functions to check for negatives and values greater than one, each of which takes in a vector and returns a boolean value if any of the components of the vector is negative or greater than one. It then calculates different conditions on the various parameters, such as condition_spendings, condition_total, and more, each of which stores a boolean value. These boolean values are then used later on in the method to determine whether or not stop functions need to be executed. For example, if condition_spendings ultimately has a boolean value of FALSE, a stop message will execute with the output: "Spendings must be a vector of type character", as a boolean value of FALSE would mean that budget[1], or the spendings component of the budget, was not of type character.  
+
+We also included a check code chunk that is used to ensure the accuracy and correctness of our aforementioned functions. It constructs three new budget objects, and imposes checks to make sure that the constructor, validator, and helper functions are working as intended. For example, we created different budget objects with different types of inputs, whether it be different lengths of inputs or different formats such as proportions versus non-proportional amounts, to check that our methods handle these different inputs properly. When we gave the constructor a weights vector that was a different length than the spendings vector, it accurately printed the message "Weights vector must be the same length as spendings vector".
+
+METHOD 1 DESCRIPTION 
+
+The method, "savings_method," calculates how much money should be allocated to each item in the spending vector based off of the total, spending, and weights arguments. If the sum of the weights times the total is equal to the designated budget (total - spendings), the function indicates that savings is unchanged. However, if the sum of the weights is less than the designated budget, the function indicates how much additional money is going to be saved.  
+
+One of our major weaknesses is that the constraints on the input and how they are inputted are very rigid. For example, in the constructor, the order of the inputs has to be spendings, total, savings, weights, and time, otherwise the code will not work. If this is not the order in which the user inputs the arguments, the code will break, and thus in the future, we should improve the robustness of this constructor in order to take a variety of different parameters in different orders. In addition, we have imposed various constraints, such as that the sum of the weights must be less than or equal to 1. By imposing these various constraints, we are again reducing the robustness of our code, and restricting the possible inputs that the user can use and thus making our class less user-friendly. Another weakness and possible improvement is that we should try to incorporate instances where the sum of the weights is greater than 1. In these cases, we can ideally allow the user to hypothetically borrow money and take on debt, rather than outputting an error message saying that the sum of the weights should be less than or equal to 1. This will ultimately make our code more robust, flexible, and more user-friendly.
+
+##NEED TO ADD IMPROVEMENTS AND WEAKNESSES AS WELL AS DESCRIPTIONS OF METHODS
+
+
